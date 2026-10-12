@@ -16,14 +16,27 @@ def create_database():
             timestamp TEXT NOT NULL,
             application_name TEXT NOT NULL,
             window_title TEXT NOT NULL,
-            duration_seconds REAL NOT NULL)
+            duration_seconds REAL NOT NULL,
+            executable_path TEXT NOT NULL DEFAULT '')
         """
     )
+
+    cursor.execute("PRAGMA table_info(activities)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "executable_path" not in columns:
+        cursor.execute(
+            "ALTER TABLE activities ADD COLUMN executable_path TEXT NOT NULL DEFAULT ''"
+        )
 
     connection.commit()
     connection.close()
 
-def log_activity(application_name: str, window_title: str, duration_seconds: float):
+def log_activity(
+    application_name: str,
+    window_title: str,
+    duration_seconds: float,
+    executable_path: str = "",
+):
     """Log an activity to the database."""
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -32,10 +45,19 @@ def log_activity(application_name: str, window_title: str, duration_seconds: flo
 
     cursor.execute(
         """
-        INSERT INTO activities (timestamp, application_name, window_title, duration_seconds)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO activities (
+            timestamp, application_name, window_title, duration_seconds,
+            executable_path
+        )
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (timestamp_now, application_name, window_title, round(duration_seconds, 2))
+        (
+            timestamp_now,
+            application_name,
+            window_title,
+            round(duration_seconds, 2),
+            executable_path,
+        )
     )
 
     connection.commit()
@@ -48,7 +70,9 @@ def get_summary():
 
     cursor.execute(
         """
-        SELECT application_name, window_title, SUM(duration_seconds) as total_duration
+        SELECT application_name, window_title,
+               SUM(duration_seconds) as total_duration,
+               MAX(executable_path) as executable_path
         FROM activities
         GROUP BY application_name, window_title
         ORDER BY total_duration DESC

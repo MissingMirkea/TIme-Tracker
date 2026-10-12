@@ -26,12 +26,12 @@ def get_system_sleep_time() -> float:
     awake_seconds = unbiased_interrupt_time.value / 10_000_000.0
     return uptime_seconds - awake_seconds
 
-def get_active_window_title():
-    """Get the app name and window title of the currently active window."""
+def get_active_window_info():
+    """Get the app name, window title, and executable path of the active window."""
     #1. Here I handle the case where there is no active window (hwnd is None)
     hwnd = user32.GetForegroundWindow()
     if not hwnd:
-        return "Unknown", "Unknown"
+        return "Unknown", "Unknown", ""
     
     #2. Get the names of the title 
     lenght = user32.GetWindowTextLengthW(hwnd)
@@ -45,11 +45,22 @@ def get_active_window_title():
 
     #4. Basically translate the process ID to the actual executable name of the application
     app_name = "Unknown"
+    executable_path = ""
     try:
         process = psutil.Process(pid.value)
         app_name = process.name()
+        try:
+            executable_path = process.exe()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         pass
+    return app_name, window_title, executable_path
+
+
+def get_active_window_title():
+    """Get the app name and window title of the currently active window."""
+    app_name, window_title, _ = get_active_window_info()
     return app_name, window_title
 
 if __name__ == "__main__":
